@@ -5,7 +5,7 @@ const cors = require("cors");
 const compression = require("compression");
 const app = express();
 const { Pool } = require("pg");
-const PORT = 4030;
+const PORT = 3000;
 // Middleware pour parser du JSON
 app.use(express.json());
 app.use(cors());
