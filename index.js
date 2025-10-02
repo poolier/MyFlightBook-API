@@ -4,9 +4,8 @@ const express = require("express");
 const cors = require("cors");
 const compression = require("compression");
 const app = express();
-const PORT = 4030;
 const { Pool } = require("pg");
-
+const PORT = 4030;
 // Middleware pour parser du JSON
 app.use(express.json());
 app.use(cors());
@@ -18,6 +17,10 @@ const pool = new Pool({
   database: process.env.PGDATABASE,
   password: process.env.PGPASSWORD,
   port: process.env.PGPORT,
+});
+
+app.get("/", (req, res) => {
+  res.send("Hello World 🚀");
 });
 
 app.get('/airports', async (req, res) => {
@@ -38,5 +41,5 @@ app.get('/airports', async (req, res) => {
 
 // Lancer le serveur
 app.listen(PORT, () => {
-  console.log(`Serveur lancé sur ${PORT}`);
+  console.log(`Serveur lancé sur le port ${PORT}`);
 });
