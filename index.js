@@ -271,24 +271,24 @@ app.get("/flightStat", async (req, res) => {
 
     const query = `
       SELECT f.*,
-        da.latitude_deg AS departure_latitude,
-        da.longitude_deg AS departure_longitude,
-        aa.latitude_deg AS arrival_latitude,
-        aa.longitude_deg AS arrival_longitude,
-        111.045 * DEGREES(ACOS(
-          COS(RADIANS(da.latitude_deg)) * COS(RADIANS(aa.latitude_deg)) *
-          COS(RADIANS(da.longitude_deg - aa.longitude_deg)) +
-          SIN(RADIANS(da.latitude_deg)) * SIN(RADIANS(aa.latitude_deg))
-        )) AS distance_km,
-        (111.045 * DEGREES(ACOS(
-          COS(RADIANS(da.latitude_deg)) * COS(RADIANS(aa.latitude_deg)) *
-          COS(RADIANS(da.longitude_deg - aa.longitude_deg)) +
-          SIN(RADIANS(da.latitude_deg)) * SIN(RADIANS(aa.latitude_deg))
-        )) / 800) AS estimated_flight_time_hours
-      FROM flight f
-      INNER JOIN airports da ON f.airport_from = da.iata_code
-      INNER JOIN airports aa ON f.airport_to = aa.iata_code
-      WHERE f.user_email = $1
+  da.latitude_deg::float AS departure_latitude,
+  da.longitude_deg::float AS departure_longitude,
+  aa.latitude_deg::float AS arrival_latitude,
+  aa.longitude_deg::float AS arrival_longitude,
+  111.045 * DEGREES(ACOS(
+    COS(RADIANS(da.latitude_deg::float)) * COS(RADIANS(aa.latitude_deg::float)) *
+    COS(RADIANS(da.longitude_deg::float - aa.longitude_deg::float)) +
+    SIN(RADIANS(da.latitude_deg::float)) * SIN(RADIANS(aa.latitude_deg::float))
+  )) AS distance_km,
+  (111.045 * DEGREES(ACOS(
+    COS(RADIANS(da.latitude_deg::float)) * COS(RADIANS(aa.latitude_deg::float)) *
+    COS(RADIANS(da.longitude_deg::float - aa.longitude_deg::float)) +
+    SIN(RADIANS(da.latitude_deg::float)) * SIN(RADIANS(aa.latitude_deg::float))
+  )) / 800) AS estimated_flight_time_hours
+FROM flight f
+INNER JOIN airports da ON f.airport_from = da.iata_code
+INNER JOIN airports aa ON f.airport_to = aa.iata_code
+WHERE f.user_email = $1;
     `;
     const result = await pool.query(query, [userEmail]);
     res.status(200).json({ flights: result.rows });
