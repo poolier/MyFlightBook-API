@@ -124,7 +124,7 @@ app.post("/flights", async (req, res) => {
 
     const query = `
       INSERT INTO flight (airport_from, airport_to, flight_date, flight_number, airline, user_email)
-      VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
+      VALUES ($1, $2, $3, $4, $5, $6) RETURNING flight_id
     `;
     const values = [airport_from, airport_to, flight_date, flight_number, airline, userEmail];
     const result = await pool.query(query, values);
