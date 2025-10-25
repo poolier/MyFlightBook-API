@@ -5,10 +5,13 @@ const compression = require("compression");
 const { Pool } = require("pg");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-//GoogleMapsKey = process.env.GOOGLEMAPSKEY;
+import fetch from "node-fetch";
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SECRET_KEY = process.env.SECRETKEY;
+const GoogleMapsKey = process.env.GOOGLEMAPSKEY;
+
 
 // Middleware
 app.use(express.json());
@@ -333,4 +336,32 @@ app.get("/flightStatDemo", async (req, res) => {
 // --- Lancer serveur ---
 app.listen(PORT, () => {
   console.log(`✅ Serveur lancé sur le port ${PORT}`);
+});
+
+app.post("/placesSearch", async (req, res) => {
+  try {
+    const body = req.body;
+
+    const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": GoogleMapsKey,
+        "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.location,places.types,places.id",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Erreur Google Places :", errorText);
+      return res.status(response.status).json({ error: "Erreur depuis Google Places API", details: errorText });
+    }
+
+    const data = await response.json();
+    res.status(200).json(data);
+  } catch (error) {
+    console.error("Erreur /placesSearch :", error.message);
+    res.status(500).json({ error: error.message });
+  }
 });
