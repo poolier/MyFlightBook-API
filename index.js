@@ -15,7 +15,22 @@ const GoogleMapsKey = process.env.GOOGLEMAPSKEY;
 
 // Middleware
 app.use(express.json());
-app.use(cors());
+const allowedOrigins = [
+  "https://flight.lolprostat.com",
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  })
+);
 app.use(compression());
 
 // 🔒 Forcer HTTPS en prod
