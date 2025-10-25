@@ -366,7 +366,7 @@ app.post("/placesSearch", placesLimiter, async (req, res) => {
       headers: {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": GoogleMapsKey,
-        "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.location,places.types,places.id,places.rating,places.businessStatus",
+        "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.location,places.types,places.id,places.rating,places.userRatingCount,places.businessStatus",
       },
       body: JSON.stringify(body),
     });
