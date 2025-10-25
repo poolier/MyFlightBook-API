@@ -5,7 +5,7 @@ const compression = require("compression");
 const { Pool } = require("pg");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-
+//GoogleMapsKey = process.env.GOOGLEMAPSKEY;
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SECRET_KEY = process.env.SECRETKEY;
