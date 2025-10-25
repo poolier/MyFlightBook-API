@@ -5,12 +5,21 @@ const compression = require("compression");
 const { Pool } = require("pg");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const rateLimit = require("express-rate-limit");
 // import fetch from "node-fetch";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SECRET_KEY = process.env.SECRETKEY;
 const GoogleMapsKey = process.env.GOOGLEMAPSKEY;
+
+const placesLimiter = rateLimit({
+  windowMs: 5 * 1000, // 5 secondes
+  max: 1, // 1 requête par fenêtre
+  message: { error: "Trop de requêtes. Réessayez dans quelques secondes." },
+  standardHeaders: true, // Ajoute les headers RateLimit-* dans la réponse
+  legacyHeaders: false,  // Supprime les anciens headers X-RateLimit-*
+});
 
 
 // Middleware
@@ -348,7 +357,7 @@ app.get("/flightStatDemo", async (req, res) => {
   }
 });
 
-app.post("/placesSearch", async (req, res) => {
+app.post("/placesSearch", placesLimiter, async (req, res) => {
   try {
     const body = req.body;
 
