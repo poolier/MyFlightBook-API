@@ -427,6 +427,8 @@ app.get("/placesDetails", async (req, res) => {
         priceLevel,
         websiteUri,
         nationalPhoneNumber,
+        regularOpeningHours,
+        reviews
       } = placeData;
 
       const latitude = location?.latitude || null;
@@ -449,7 +451,9 @@ app.get("/placesDetails", async (req, res) => {
         types,
         price_level,
         website_uri,
-        national_phone_number
+        national_phone_number,
+        review,
+        horaire
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
       RETURNING *;
     `;
@@ -468,6 +472,8 @@ app.get("/placesDetails", async (req, res) => {
         priceLevel || null,
         websiteUri || null,
         nationalPhoneNumber || null,
+        reviews || null,
+        regularOpeningHours || null
       ];
       const insertResult = await pool.query(insertQuery, insertValues);
       return res.status(201).json({ data: insertResult.rows[0] });
