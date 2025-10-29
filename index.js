@@ -466,15 +466,16 @@ app.get("/placesDetails", async (req, res) => {
         userRatingCount || null,
         latitude,
         longitude,
-        photosUrls,
+        photos ? JSON.stringify(photos) : null, // 🔹 tableau d'objets JSON
         primaryType || null,
-        types || null,
+        types ? JSON.stringify(types) : null,   // 🔹 tableau de strings
         priceLevel || null,
         websiteUri || null,
         nationalPhoneNumber || null,
-        reviews ? JSON.stringify(reviews) : null,
-        regularOpeningHours ? JSON.stringify(regularOpeningHours) : null
+        reviews ? JSON.stringify(reviews) : null,  // 🔹 tableau JSON
+        regularOpeningHours ? JSON.stringify(regularOpeningHours) : null  // 🔹 objet JSON
       ];
+
       const insertResult = await pool.query(insertQuery, insertValues);
       return res.status(201).json({ data: insertResult.rows[0] });
     }
