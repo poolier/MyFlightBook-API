@@ -392,7 +392,7 @@ app.get("/placesDetails", async (req, res) => {
 
   try {
     // 1. Recherche dans la table PLACE si le lieux existe déjà
-    const placeQuery = "SELECT * FROM etablissement WHERE id_google = $1";
+    const placeQuery = "SELECT * FROM place WHERE id_google = $1";
     const placeResult = await pool.query(placeQuery, [googlemapid]);
     if (placeResult.rows.length > 0) {
       // 2. Si le lieu existe, on renvoie directement ses données
@@ -436,7 +436,7 @@ app.get("/placesDetails", async (req, res) => {
         photos?.map((p) => p.name || p.photoUri || null).filter(Boolean) || [];
 
       const insertQuery = `
-      INSERT INTO etablissement (
+      INSERT INTO place (
         id_google,
         display_name,
         formatted_address,
