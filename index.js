@@ -472,8 +472,8 @@ app.get("/placesDetails", async (req, res) => {
         priceLevel || null,
         websiteUri || null,
         nationalPhoneNumber || null,
-        reviews || null,
-        regularOpeningHours || null
+        reviews ? JSON.stringify(reviews) : null,
+        regularOpeningHours ? JSON.stringify(regularOpeningHours) : null
       ];
       const insertResult = await pool.query(insertQuery, insertValues);
       return res.status(201).json({ data: insertResult.rows[0] });
