@@ -385,6 +385,105 @@ app.post("/placesSearch", placesLimiter, async (req, res) => {
   }
 });
 
+// Requête de lieux 
+app.get("/placesDetails", async (req, res) => {
+  const { googlemapid } = req.query;
+  if (!googlemapid) return res.status(400).json({ error: "Place ID is missing" });
+
+  try {
+    // 1. Recherche dans la table PLACE si le lieux existe déjà
+    const placeQuery = "SELECT * FROM etablissement WHERE id_google = $1";
+    const placeResult = await pool.query(placeQuery, [googlemapid]);
+    if (placeResult.rows.length > 0) {
+      // 2. Si le lieu existe, on renvoie directement ses données
+      return res.status(200).json({
+        data: placeResult.rows[0]
+      });
+    } else {
+      // 3. Le lieux n'existe pas dans notre base, on le cherche via Google Places API
+      const response = await fetch(`https://places.googleapis.com/v1/places/` + googlemapid, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": GoogleMapsKey,
+          "X-Goog-FieldMask": "displayName,formattedAddress,rating,userRatingCount,location,photos,reviews,primaryType,types,regularOpeningHours,priceLevel,websiteUri,nationalPhoneNumber",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Erreur lors de l'appel à Google Places API");
+      }
+
+      const placeData = await response.json();
+      const {
+        displayName,
+        formattedAddress,
+        rating,
+        userRatingCount,
+        location,
+        photos,
+        primaryType,
+        types,
+        priceLevel,
+        websiteUri,
+        nationalPhoneNumber,
+      } = placeData;
+
+      const latitude = location?.latitude || null;
+      const longitude = location?.longitude || null;
+
+      const photosUrls =
+        photos?.map((p) => p.name || p.photoUri || null).filter(Boolean) || [];
+
+      const insertQuery = `
+      INSERT INTO etablissement (
+        id_google,
+        display_name,
+        formatted_address,
+        rating,
+        user_rating_count,
+        latitude,
+        longitude,
+        photos,
+        primary_type,
+        types,
+        price_level,
+        website_uri,
+        national_phone_number
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+      RETURNING *;
+    `;
+
+      const insertValues = [
+        googlemapid,
+        displayName?.text || displayName || null,
+        formattedAddress || null,
+        rating || null,
+        userRatingCount || null,
+        latitude,
+        longitude,
+        photosUrls,
+        primaryType || null,
+        types || null,
+        priceLevel || null,
+        websiteUri || null,
+        nationalPhoneNumber || null,
+      ];
+      const insertResult = await pool.query(insertQuery, insertValues);
+      return res.status(201).json({ data: insertResult.rows[0] });
+    }
+
+  }
+  catch (error) {
+    console.error("Erreur /placesDetails :", error.message);
+    res.status(500).json({ error: error.message });
+  }
+
+
+
+
+});
+
 // --- Lancer serveur ---
 app.listen(PORT, () => {
   console.log(`✅ Serveur lancé sur le port ${PORT}`);
