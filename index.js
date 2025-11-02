@@ -391,7 +391,7 @@ app.get("/placesDetails", async (req, res) => {
   if (!googlemapid) return res.status(400).json({ error: "Place ID is missing" });
 
   try {
-    // 1. Vérifie si le lieu existe déjà dans la base
+    // 1️⃣ Vérifie si le lieu est déjà en base
     const placeQuery = "SELECT * FROM place WHERE googlemapid = $1";
     const placeResult = await pool.query(placeQuery, [googlemapid]);
 
@@ -399,7 +399,7 @@ app.get("/placesDetails", async (req, res) => {
       return res.status(200).json({ data: placeResult.rows[0] });
     }
 
-    // 2. Récupération via l’API Google Places
+    // 2️⃣ Appel Google Places API
     const response = await fetch(`https://places.googleapis.com/v1/places/${googlemapid}`, {
       method: "GET",
       headers: {
@@ -414,7 +414,6 @@ app.get("/placesDetails", async (req, res) => {
     }
 
     const placeData = await response.json();
-
     const {
       displayName,
       formattedAddress,
@@ -434,14 +433,39 @@ app.get("/placesDetails", async (req, res) => {
     const latitude = location?.latitude || null;
     const longitude = location?.longitude || null;
 
-    // 3. Construction des URLs de photos
-    const photosUrls =
-      photos?.map((p) => {
-        if (!p.name) return null;
-        return `https://places.googleapis.com/v1/${p.name}/media?maxHeightPx=800&key=${GoogleMapsKey}`;
-      }).filter(Boolean) || [];
+    // 3️⃣ Récupère les URL finales des photos
+    const photosUrls = [];
 
-    // 4. Insertion en base
+if (photos && photos.length > 0) {
+  for (const p of photos) {
+    if (!p.name) continue;
+
+    const photoUrl = `https://places.googleapis.com/v1/${p.name}/media?maxHeightPx=800&key=${GoogleMapsKey}`;
+
+    try {
+      // On suit la redirection pour obtenir l’URL finale
+      const response = await fetch(photoUrl, {
+        method: "GET",
+        redirect: "manual" // ⚠️ on empêche le suivi automatique
+      });
+
+      // Si Google renvoie une redirection (status 302), l’URL finale est dans l’en-tête "Location"
+      if (response.status === 302) {
+        const finalUrl = response.headers.get("location");
+        if (finalUrl) photosUrls.push(finalUrl);
+      }
+      else if (response.ok) {
+        // Dans certains cas, pas de redirection — on garde le lien direct
+        photosUrls.push(photoUrl);
+      }
+
+    } catch (err) {
+      console.error("Erreur récupération photo :", err.message);
+    }
+  }
+}
+
+    // 4️⃣ Insertion en base
     const insertQuery = `
       INSERT INTO place (
         googlemapid,
@@ -471,7 +495,7 @@ app.get("/placesDetails", async (req, res) => {
       userRatingCount || null,
       latitude,
       longitude,
-      JSON.stringify(photosUrls), // 🔹 On stocke les URLs directement
+      JSON.stringify(photosUrls), // 🔹 on stocke ici les URL directes des images
       primaryType || null,
       types ? JSON.stringify(types) : null,
       priceLevel || null,
