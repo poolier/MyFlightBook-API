@@ -436,35 +436,35 @@ app.get("/placesDetails", async (req, res) => {
     // 3️⃣ Récupère les URL finales des photos
     let photosUrls = [];
 
-if (photos && photos.length > 0) {
-  // Création d'un tableau de promesses pour récupérer les URLs finales
-  const photoPromises = photos.map(async (p) => {
-    if (!p.name) return null;
+    if (photos && photos.length > 0) {
+      // Création d'un tableau de promesses pour récupérer les URLs finales
+      const photoPromises = photos.map(async (p) => {
+        if (!p.name) return null;
 
-    const photoUrl = `https://places.googleapis.com/v1/${p.name}/media?maxHeightPx=800&key=${GoogleMapsKey}`;
+        const photoUrl = `https://places.googleapis.com/v1/${p.name}/media?maxHeightPx=800&key=${GoogleMapsKey}`;
 
-    try {
-      const response = await fetch(photoUrl, { method: "GET", redirect: "manual" });
+        try {
+          const response = await fetch(photoUrl, { method: "GET", redirect: "manual" });
 
-      if (response.status === 302) {
-        // On récupère l'URL finale dans l'en-tête Location
-        return response.headers.get("location");
-      } else if (response.ok) {
-        // Pas de redirection : on garde l'URL directe
-        return photoUrl;
-      }
-    } catch (err) {
-      console.error("Erreur récupération photo :", err.message);
-      return null;
+          if (response.status === 302) {
+            // On récupère l'URL finale dans l'en-tête Location
+            return response.headers.get("location");
+          } else if (response.ok) {
+            // Pas de redirection : on garde l'URL directe
+            return photoUrl;
+          }
+        } catch (err) {
+          console.error("Erreur récupération photo :", err.message);
+          return null;
+        }
+      });
+
+      // On attend que toutes les promesses soient résolues
+      const resolvedUrls = await Promise.all(photoPromises);
+
+      // On filtre les null
+      photosUrls = resolvedUrls.filter(Boolean);
     }
-  });
-
-  // On attend que toutes les promesses soient résolues
-  const resolvedUrls = await Promise.all(photoPromises);
-
-  // On filtre les null
-  photosUrls = resolvedUrls.filter(Boolean);
-}
 
     // 4️⃣ Insertion en base
     const insertQuery = `
@@ -511,6 +511,49 @@ if (photos && photos.length > 0) {
   } catch (error) {
     console.error("Erreur /placesDetails :", error.message);
     res.status(500).json({ error: error.message });
+  }
+});
+
+
+router.post("/togglePlaceLoved", async (req, res) => {
+  const { googlemapid, user_id } = req.body; // ou googlemapid selon ton modèle
+
+  if (!googlemapid || !user_id) {
+    return res.status(400).json({ error: "place_id et user_id requis" });
+  }
+
+  try {
+    // 1. Transformation googlemapid en place_id
+    const [rows] = await db.execute(
+      "SELECT id FROM place WHERE googlemapid = ?",
+      [googlemapid]
+    );
+
+    let place_id = rows[0].id
+
+    const [rows2] = await db.execute(
+      "SELECT * FROM place_loved WHERE place_id = ? AND account_id = ?",
+      [place_id, user_id]
+    );
+
+    if (rows.length > 0) {
+      // 2️⃣ Déjà présent → on supprime
+      await db.execute(
+        "DELETE FROM place_loved WHERE place_id = ? AND user_id = ?",
+        [place_id, user_id]
+      );
+      return res.json({ loved: false, message: "Lieu retiré des favoris" });
+    } else {
+      // 3️⃣ Pas encore aimé → on ajoute
+      await db.execute(
+        "INSERT INTO place_loved (place_id, user_id, created_at) VALUES (?, ?, NOW())",
+        [place_id, user_id]
+      );
+      return res.json({ loved: true, message: "Lieu ajouté aux favoris" });
+    }
+  } catch (err) {
+    console.error("Erreur SQL:", err);
+    res.status(500).json({ error: "Erreur interne du serveur" });
   }
 });
 
