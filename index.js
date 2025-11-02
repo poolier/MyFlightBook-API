@@ -551,7 +551,7 @@ app.post("/togglePlaceLoved", async (req, res) => {
     } else {
       // 4️⃣ Pas encore aimé → on ajoute
       await pool.query(
-        "INSERT INTO place_loved (place_id, account_id, created_at) VALUES ($1, $2, NOW())",
+        "INSERT INTO place_loved (place_id, account_id, added_date) VALUES ($1, $2, NOW())",
         [place_id, user_id]
       );
       return res.json({ loved: true, message: "Lieu ajouté aux favoris" });
@@ -575,7 +575,7 @@ app.get("/placesLovedList", async (req, res) => {
       FROM place_loved pl
       INNER JOIN place p ON pl.place_id = p.id
       WHERE pl.account_id = $1
-      ORDER BY pl.created_at DESC;
+      ORDER BY pl.added_date DESC;
     `;
 
     const result = await pool.query(query, [user_id]);
