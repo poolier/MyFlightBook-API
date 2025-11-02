@@ -516,43 +516,76 @@ app.get("/placesDetails", async (req, res) => {
 
 
 app.post("/togglePlaceLoved", async (req, res) => {
-  const { googlemapid, user_id } = req.body; // ou googlemapid selon ton modèle
+  const { googlemapid, user_id } = req.body;
 
   if (!googlemapid || !user_id) {
-    return res.status(400).json({ error: "place_id et user_id requis" });
+    return res.status(400).json({ error: "googlemapid et user_id requis" });
   }
 
   try {
-    // 1. Transformation googlemapid en place_id
-    const [rows] = await db.execute(
-      "SELECT id FROM place WHERE googlemapid = ?",
+    // 1️⃣ Récupérer l'ID du lieu
+    const placeResult = await pool.query(
+      "SELECT id FROM place WHERE googlemapid = $1",
       [googlemapid]
     );
 
-    let place_id = rows[0].id
+    if (placeResult.rows.length === 0) {
+      return res.status(404).json({ error: "Lieu introuvable" });
+    }
 
-    const [rows2] = await db.execute(
-      "SELECT * FROM place_loved WHERE place_id = ? AND account_id = ?",
+    const place_id = placeResult.rows[0].id;
+
+    // 2️⃣ Vérifier si ce lieu est déjà dans les favoris
+    const lovedResult = await pool.query(
+      "SELECT * FROM place_loved WHERE place_id = $1 AND account_id = $2",
       [place_id, user_id]
     );
 
-    if (rows.length > 0) {
-      // 2️⃣ Déjà présent → on supprime
-      await db.execute(
-        "DELETE FROM place_loved WHERE place_id = ? AND user_id = ?",
+    if (lovedResult.rows.length > 0) {
+      // 3️⃣ Déjà présent → on supprime
+      await pool.query(
+        "DELETE FROM place_loved WHERE place_id = $1 AND account_id = $2",
         [place_id, user_id]
       );
       return res.json({ loved: false, message: "Lieu retiré des favoris" });
     } else {
-      // 3️⃣ Pas encore aimé → on ajoute
-      await db.execute(
-        "INSERT INTO place_loved (place_id, user_id, created_at) VALUES (?, ?, NOW())",
+      // 4️⃣ Pas encore aimé → on ajoute
+      await pool.query(
+        "INSERT INTO place_loved (place_id, account_id, created_at) VALUES ($1, $2, NOW())",
         [place_id, user_id]
       );
       return res.json({ loved: true, message: "Lieu ajouté aux favoris" });
     }
   } catch (err) {
-    console.error("Erreur SQL:", err);
+    console.error("Erreur SQL:", err.message);
+    res.status(500).json({ error: "Erreur interne du serveur" });
+  }
+});
+
+app.get("/placesLovedList", async (req, res) => {
+  const { user_id } = req.query;
+
+  if (!user_id) {
+    return res.status(400).json({ error: "user_id requis" });
+  }
+
+  try {
+    const query = `
+      SELECT p.*
+      FROM place_loved pl
+      INNER JOIN place p ON pl.place_id = p.id
+      WHERE pl.account_id = $1
+      ORDER BY pl.created_at DESC;
+    `;
+
+    const result = await pool.query(query, [user_id]);
+
+    res.status(200).json({
+      count: result.rows.length,
+      places: result.rows,
+    });
+  } catch (err) {
+    console.error("Erreur SQL:", err.message);
     res.status(500).json({ error: "Erreur interne du serveur" });
   }
 });
