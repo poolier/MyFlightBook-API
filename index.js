@@ -434,35 +434,36 @@ app.get("/placesDetails", async (req, res) => {
     const longitude = location?.longitude || null;
 
     // 3️⃣ Récupère les URL finales des photos
-    const photosUrls = [];
+    let photosUrls = [];
 
 if (photos && photos.length > 0) {
-  for (const p of photos) {
-    if (!p.name) continue;
+  // Création d'un tableau de promesses pour récupérer les URLs finales
+  const photoPromises = photos.map(async (p) => {
+    if (!p.name) return null;
 
     const photoUrl = `https://places.googleapis.com/v1/${p.name}/media?maxHeightPx=800&key=${GoogleMapsKey}`;
 
     try {
-      // On suit la redirection pour obtenir l’URL finale
-      const response = await fetch(photoUrl, {
-        method: "GET",
-        redirect: "manual" // ⚠️ on empêche le suivi automatique
-      });
+      const response = await fetch(photoUrl, { method: "GET", redirect: "manual" });
 
-      // Si Google renvoie une redirection (status 302), l’URL finale est dans l’en-tête "Location"
       if (response.status === 302) {
-        const finalUrl = response.headers.get("location");
-        if (finalUrl) photosUrls.push(finalUrl);
+        // On récupère l'URL finale dans l'en-tête Location
+        return response.headers.get("location");
+      } else if (response.ok) {
+        // Pas de redirection : on garde l'URL directe
+        return photoUrl;
       }
-      else if (response.ok) {
-        // Dans certains cas, pas de redirection — on garde le lien direct
-        photosUrls.push(photoUrl);
-      }
-
     } catch (err) {
       console.error("Erreur récupération photo :", err.message);
+      return null;
     }
-  }
+  });
+
+  // On attend que toutes les promesses soient résolues
+  const resolvedUrls = await Promise.all(photoPromises);
+
+  // On filtre les null
+  photosUrls = resolvedUrls.filter(Boolean);
 }
 
     // 4️⃣ Insertion en base
