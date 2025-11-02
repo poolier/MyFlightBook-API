@@ -515,7 +515,7 @@ app.get("/placesDetails", async (req, res) => {
 });
 
 
-router.post("/togglePlaceLoved", async (req, res) => {
+app.post("/togglePlaceLoved", async (req, res) => {
   const { googlemapid, user_id } = req.body; // ou googlemapid selon ton modèle
 
   if (!googlemapid || !user_id) {
