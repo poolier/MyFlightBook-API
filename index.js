@@ -391,53 +391,58 @@ app.get("/placesDetails", async (req, res) => {
   if (!googlemapid) return res.status(400).json({ error: "Place ID is missing" });
 
   try {
-    // 1. Recherche dans la table PLACE si le lieux existe déjà
+    // 1. Vérifie si le lieu existe déjà dans la base
     const placeQuery = "SELECT * FROM place WHERE googlemapid = $1";
     const placeResult = await pool.query(placeQuery, [googlemapid]);
+
     if (placeResult.rows.length > 0) {
-      // 2. Si le lieu existe, on renvoie directement ses données
-      return res.status(200).json({
-        data: placeResult.rows[0]
-      });
-    } else {
-      // 3. Le lieux n'existe pas dans notre base, on le cherche via Google Places API
-      const response = await fetch(`https://places.googleapis.com/v1/places/` + googlemapid, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Goog-Api-Key": GoogleMapsKey,
-          "X-Goog-FieldMask": "displayName,formattedAddress,rating,userRatingCount,location,photos,reviews,primaryType,types,regularOpeningHours,priceLevel,websiteUri,nationalPhoneNumber",
-        },
-      });
+      return res.status(200).json({ data: placeResult.rows[0] });
+    }
 
-      if (!response.ok) {
-        throw new Error("Erreur lors de l'appel à Google Places API");
-      }
+    // 2. Récupération via l’API Google Places
+    const response = await fetch(`https://places.googleapis.com/v1/places/${googlemapid}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": GoogleMapsKey,
+        "X-Goog-FieldMask": "displayName,formattedAddress,rating,userRatingCount,location,photos,reviews,primaryType,types,regularOpeningHours,priceLevel,websiteUri,nationalPhoneNumber",
+      },
+    });
 
-      const placeData = await response.json();
-      const {
-        displayName,
-        formattedAddress,
-        rating,
-        userRatingCount,
-        location,
-        photos,
-        primaryType,
-        types,
-        priceLevel,
-        websiteUri,
-        nationalPhoneNumber,
-        regularOpeningHours,
-        reviews
-      } = placeData;
+    if (!response.ok) {
+      throw new Error("Erreur lors de l'appel à Google Places API");
+    }
 
-      const latitude = location?.latitude || null;
-      const longitude = location?.longitude || null;
+    const placeData = await response.json();
 
-      const photosUrls =
-        photos?.map((p) => p.name || p.photoUri || null).filter(Boolean) || [];
+    const {
+      displayName,
+      formattedAddress,
+      rating,
+      userRatingCount,
+      location,
+      photos,
+      primaryType,
+      types,
+      priceLevel,
+      websiteUri,
+      nationalPhoneNumber,
+      regularOpeningHours,
+      reviews,
+    } = placeData;
 
-      const insertQuery = `
+    const latitude = location?.latitude || null;
+    const longitude = location?.longitude || null;
+
+    // 3. Construction des URLs de photos
+    const photosUrls =
+      photos?.map((p) => {
+        if (!p.name) return null;
+        return `https://places.googleapis.com/v1/${p.name}/media?maxHeightPx=800&key=${GoogleMapsKey}`;
+      }).filter(Boolean) || [];
+
+    // 4. Insertion en base
+    const insertQuery = `
       INSERT INTO place (
         googlemapid,
         display_name,
@@ -458,38 +463,32 @@ app.get("/placesDetails", async (req, res) => {
       RETURNING *;
     `;
 
-      const insertValues = [
-        googlemapid,
-        displayName?.text || displayName || null,
-        formattedAddress || null,
-        rating || null,
-        userRatingCount || null,
-        latitude,
-        longitude,
-        photos ? JSON.stringify(photos) : null, // 🔹 tableau d'objets JSON
-        primaryType || null,
-        types ? JSON.stringify(types) : null,   // 🔹 tableau de strings
-        priceLevel || null,
-        websiteUri || null,
-        nationalPhoneNumber || null,
-        reviews ? JSON.stringify(reviews) : null,  // 🔹 tableau JSON
-        regularOpeningHours ? JSON.stringify(regularOpeningHours) : null  // 🔹 objet JSON
-      ];
+    const insertValues = [
+      googlemapid,
+      displayName?.text || displayName || null,
+      formattedAddress || null,
+      rating || null,
+      userRatingCount || null,
+      latitude,
+      longitude,
+      JSON.stringify(photosUrls), // 🔹 On stocke les URLs directement
+      primaryType || null,
+      types ? JSON.stringify(types) : null,
+      priceLevel || null,
+      websiteUri || null,
+      nationalPhoneNumber || null,
+      reviews ? JSON.stringify(reviews) : null,
+      regularOpeningHours ? JSON.stringify(regularOpeningHours) : null,
+    ];
 
-      const insertResult = await pool.query(insertQuery, insertValues);
-      return res.status(201).json({ data: insertResult.rows[0] });
-    }
-
-  }
-  catch (error) {
+    const insertResult = await pool.query(insertQuery, insertValues);
+    return res.status(201).json({ data: insertResult.rows[0] });
+  } catch (error) {
     console.error("Erreur /placesDetails :", error.message);
     res.status(500).json({ error: error.message });
   }
-
-
-
-
 });
+
 
 // --- Lancer serveur ---
 app.listen(PORT, () => {
