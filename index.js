@@ -629,7 +629,11 @@ app.post("/placeLovedStatus", async (req, res) => {
     );
 
     if (placeResult.rows.length === 0) {
-      return res.status(404).json({ error: "Lieu introuvable" });
+      return res.status(200).json({
+        is_loved: false,
+        is_tovisit: false,
+        message: "Aucune donnée pour ce lieu",
+      });
     }
 
     const place_id = placeResult.rows[0].id;
