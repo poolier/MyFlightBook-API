@@ -597,7 +597,7 @@ app.get("/placesLovedList", async (req, res) => {
       SELECT 
         p.*, 
         pl.is_loved, 
-        pl.is_visited,
+        pl.is_tovisit,
         pl.added_date
       FROM place_loved pl
       INNER JOIN place p ON pl.place_id = p.id
@@ -609,7 +609,7 @@ app.get("/placesLovedList", async (req, res) => {
 
     // Séparer les lieux selon les booléens
     const lovedPlaces = result.rows.filter(r => r.is_loved);
-    const visitedPlaces = result.rows.filter(r => r.is_visited);
+    const visitedPlaces = result.rows.filter(r => r.is_tovisit);
 
     res.status(200).json({
       loved_count: lovedPlaces.length,
