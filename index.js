@@ -594,7 +594,11 @@ app.get("/placesLovedList", async (req, res) => {
 
   try {
     const query = `
-      SELECT p.*
+      SELECT 
+        p.*, 
+        pl.is_loved, 
+        pl.is_visited,
+        pl.added_date
       FROM place_loved pl
       INNER JOIN place p ON pl.place_id = p.id
       WHERE pl.account_id = $1
@@ -603,15 +607,22 @@ app.get("/placesLovedList", async (req, res) => {
 
     const result = await pool.query(query, [user_id]);
 
+    // Séparer les lieux selon les booléens
+    const lovedPlaces = result.rows.filter(r => r.is_loved);
+    const visitedPlaces = result.rows.filter(r => r.is_visited);
+
     res.status(200).json({
-      count: result.rows.length,
-      places: result.rows,
+      loved_count: lovedPlaces.length,
+      visited_count: visitedPlaces.length,
+      loved_places: lovedPlaces,
+      visited_places: visitedPlaces,
     });
   } catch (err) {
     console.error("Erreur SQL:", err.message);
     res.status(500).json({ error: "Erreur interne du serveur" });
   }
 });
+
 
 //Une route post avec gmapid et userid qui retourne si le lieu est dans les favoris ou à visiter
 app.post("/placeLovedStatus", async (req, res) => {
