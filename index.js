@@ -595,7 +595,12 @@ app.get("/placesLovedList", async (req, res) => {
   try {
     const query = `
       SELECT 
-        p.*, 
+        p.display_name,
+        p.formatted_address,
+        p.googlemapid,
+        p.latitude,
+        p.longitude,
+        p.primary_type, 
         pl.is_loved, 
         pl.is_tovisit,
         pl.added_date
