@@ -613,6 +613,58 @@ app.get("/placesLovedList", async (req, res) => {
   }
 });
 
+//Une route post avec gmapid et userid qui retourne si le lieu est dans les favoris ou à visiter
+app.post("/placeLovedStatus", async (req, res) => {
+  const { googlemapid, user_id } = req.body;
+
+  if (!googlemapid || !user_id) {
+    return res.status(400).json({ error: "googlemapid et user_id requis" });
+  }
+
+  try {
+    // 1️⃣ Récupérer l'ID du lieu à partir de son Google Map ID
+    const placeResult = await pool.query(
+      "SELECT id FROM place WHERE googlemapid = $1",
+      [googlemapid]
+    );
+
+    if (placeResult.rows.length === 0) {
+      return res.status(404).json({ error: "Lieu introuvable" });
+    }
+
+    const place_id = placeResult.rows[0].id;
+
+    // 2️⃣ Vérifier les statuts is_loved / is_tovisit pour cet utilisateur
+    const lovedStatusResult = await pool.query(
+      `
+      SELECT is_loved, is_tovisit
+      FROM place_loved
+      WHERE account_id = $1 AND place_id = $2
+      `,
+      [user_id, place_id]
+    );
+
+    // 3️⃣ Si aucun enregistrement → retour par défaut
+    if (lovedStatusResult.rows.length === 0) {
+      return res.status(200).json({
+        is_loved: false,
+        is_tovisit: false,
+        message: "Aucune donnée pour ce lieu",
+      });
+    }
+
+    // 4️⃣ Retourner les valeurs existantes
+    const { is_loved, is_tovisit } = lovedStatusResult.rows[0];
+
+    res.status(200).json({
+      is_loved,
+      is_tovisit,
+    });
+  } catch (err) {
+    console.error("Erreur SQL:", err.message);
+    res.status(500).json({ error: "Erreur interne du serveur" });
+  }
+});
 
 // --- Lancer serveur ---
 app.listen(PORT, () => {
