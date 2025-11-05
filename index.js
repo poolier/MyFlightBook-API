@@ -516,10 +516,14 @@ app.get("/placesDetails", async (req, res) => {
 
 
 app.post("/togglePlaceLoved", async (req, res) => {
-  const { googlemapid, user_id } = req.body;
+  const { googlemapid, user_id, type } = req.body;
 
-  if (!googlemapid || !user_id) {
-    return res.status(400).json({ error: "googlemapid et user_id requis" });
+  if (!googlemapid || !user_id || !type) {
+    return res.status(400).json({ error: "googlemapid, user_id et type requis" });
+  }
+
+  if (!["loved", "tovisit"].includes(type)) {
+    return res.status(400).json({ error: "Type invalide (attendu : 'loved' ou 'tovisit')" });
   }
 
   try {
@@ -535,32 +539,51 @@ app.post("/togglePlaceLoved", async (req, res) => {
 
     const place_id = placeResult.rows[0].id;
 
-    // 2️⃣ Vérifier si ce lieu est déjà dans les favoris
-    const lovedResult = await pool.query(
+    // 2️⃣ Vérifier si ce lieu existe déjà dans la table place_loved
+    const existingResult = await pool.query(
       "SELECT * FROM place_loved WHERE place_id = $1 AND account_id = $2",
       [place_id, user_id]
     );
 
-    if (lovedResult.rows.length > 0) {
-      // 3️⃣ Déjà présent → on supprime
+    // Déterminer la colonne à mettre à jour
+    const column = type === "loved" ? "is_loved" : "is_tovisit";
+
+    if (existingResult.rows.length > 0) {
+      const currentValue = existingResult.rows[0][column];
+
+      // 3️⃣ Si déjà activé → désactiver
+      if (currentValue) {
+        await pool.query(
+          `UPDATE place_loved SET ${column} = false WHERE place_id = $1 AND account_id = $2`,
+          [place_id, user_id]
+        );
+        return res.json({ [type]: false, message: `Lieu retiré de ${type === "loved" ? "vos favoris" : "votre liste à visiter"}` });
+      } 
+      // 4️⃣ Sinon → activer
+      else {
+        await pool.query(
+          `UPDATE place_loved SET ${column} = true, added_date = NOW() WHERE place_id = $1 AND account_id = $2`,
+          [place_id, user_id]
+        );
+        return res.json({ [type]: true, message: `Lieu ajouté à ${type === "loved" ? "vos favoris" : "votre liste à visiter"}` });
+      }
+    } 
+    // 5️⃣ Si l’entrée n’existe pas encore → en créer une
+    else {
+      const isLoved = type === "loved";
+      const isToVisit = type === "tovisit";
       await pool.query(
-        "DELETE FROM place_loved WHERE place_id = $1 AND account_id = $2",
-        [place_id, user_id]
+        "INSERT INTO place_loved (place_id, account_id, is_loved, is_tovisit, added_date) VALUES ($1, $2, $3, $4, NOW())",
+        [place_id, user_id, isLoved, isToVisit]
       );
-      return res.json({ loved: false, message: "Lieu retiré des favoris" });
-    } else {
-      // 4️⃣ Pas encore aimé → on ajoute
-      await pool.query(
-        "INSERT INTO place_loved (place_id, account_id, added_date) VALUES ($1, $2, NOW())",
-        [place_id, user_id]
-      );
-      return res.json({ loved: true, message: "Lieu ajouté aux favoris" });
+      return res.json({ [type]: true, message: `Lieu ajouté à ${type === "loved" ? "vos favoris" : "votre liste à visiter"}` });
     }
   } catch (err) {
     console.error("Erreur SQL:", err.message);
     res.status(500).json({ error: "Erreur interne du serveur" });
   }
 });
+
 
 app.get("/placesLovedList", async (req, res) => {
   const { user_id } = req.query;
