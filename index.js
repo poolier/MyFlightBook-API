@@ -618,6 +618,8 @@ app.get("/placesLovedList", async (req, res) => {
         p.primary_type, 
         pl.is_loved, 
         pl.is_tovisit,
+        pl.category_loved,
+        pl.category_tovisit,
         pl.added_date
       FROM place_loved pl
       INNER JOIN place p ON pl.place_id = p.id
