@@ -403,7 +403,7 @@ app.post("/placesNearby", placesLimiter, async (req, res) => {
             latitude: parseFloat(lat),
             longitude: parseFloat(lon),
           },
-          radius: parseInt(radius),
+          radius: parseFloat(radius),
         },
       },
       maxResultCount: 20,
@@ -412,9 +412,7 @@ app.post("/placesNearby", placesLimiter, async (req, res) => {
 
     // Filtre par catégorie Google Maps
     if (category) {
-      body.categoryFilter = {
-        includeCategories: [category.toUpperCase()] // Google attend MAJUSCULES
-      };
+      body.includedTypes = [category.toLowerCase()]; // ex: "restaurant", "cafe"
     }
 
     const response = await fetch(
@@ -440,11 +438,13 @@ app.post("/placesNearby", placesLimiter, async (req, res) => {
 
     const data = await response.json();
     res.status(200).json(data);
+
   } catch (error) {
     console.error("Erreur /placesNearby :", error.message);
     res.status(500).json({ error: error.message });
   }
 });
+
 
 
 
