@@ -514,9 +514,9 @@ app.get("/placesDetails", async (req, res) => {
   }
 });
 
-
+//Ajouter user_note
 app.post("/togglePlaceLoved", async (req, res) => {
-  const { googlemapid, user_id, type, category, user_note } = req.body;
+  const { googlemapid, user_id, type, category } = req.body;
 
   if (!googlemapid || !user_id || !type || !category) {
     return res.status(400).json({ error: "googlemapid, user_id, type et category requis" });
@@ -539,48 +539,43 @@ app.post("/togglePlaceLoved", async (req, res) => {
 
     const place_id = placeResult.rows[0].id;
 
-    // 2️⃣ Vérifier si une entrée existe déjà dans place_loved
+    // 2️⃣ Vérifier si ce lieu existe déjà dans la table place_loved
     const existingResult = await pool.query(
       "SELECT * FROM place_loved WHERE place_id = $1 AND account_id = $2",
       [place_id, user_id]
     );
 
+    // Colonnes à cibler
     const column = type === "loved" ? "is_loved" : "is_tovisit";
     const categoryColumn = type === "loved" ? "category_loved" : "category_tovisit";
 
     if (existingResult.rows.length > 0) {
       const currentValue = existingResult.rows[0][column];
 
-      // 3️⃣ Si déjà activé → désactiver mais conserver la note
+      // 3️⃣ Si déjà activé → désactiver + vider la catégorie
       if (currentValue) {
         await pool.query(
-          `UPDATE place_loved 
-           SET ${column} = false, ${categoryColumn} = NULL 
-           WHERE place_id = $1 AND account_id = $2`,
+          `UPDATE place_loved SET ${column} = false, ${categoryColumn} = NULL WHERE place_id = $1 AND account_id = $2`,
           [place_id, user_id]
         );
         return res.json({
           [type]: false,
-          message: `Lieu retiré de ${type === "loved" ? "vos favoris" : "votre liste à visiter"}`,
-          user_note: existingResult.rows[0].user_note
+          message: `Lieu retiré de ${type === "loved" ? "vos favoris" : "votre liste à visiter"}`
         });
       } 
-      // 4️⃣ Sinon → activer + mettre à jour catégorie et note
+      // 4️⃣ Sinon → activer + ajouter la catégorie
       else {
         await pool.query(
-          `UPDATE place_loved 
-           SET ${column} = true, ${categoryColumn} = $3, user_note = $4, added_date = NOW() 
-           WHERE place_id = $1 AND account_id = $2`,
-          [place_id, user_id, category, user_note || existingResult.rows[0].user_note || null]
+          `UPDATE place_loved SET ${column} = true, ${categoryColumn} = $3, added_date = NOW() WHERE place_id = $1 AND account_id = $2`,
+          [place_id, user_id, category]
         );
         return res.json({
           [type]: true,
-          message: `Lieu ajouté à ${type === "loved" ? "vos favoris" : "votre liste à visiter"}`,
-          user_note: user_note || existingResult.rows[0].user_note
+          message: `Lieu ajouté à ${type === "loved" ? "vos favoris" : "votre liste à visiter"}`
         });
       }
     } 
-    // 5️⃣ Si aucune entrée → créer une nouvelle ligne avec la note
+    // 5️⃣ Si l’entrée n’existe pas encore → en créer une avec la bonne catégorie
     else {
       const isLoved = type === "loved";
       const isToVisit = type === "tovisit";
@@ -588,16 +583,13 @@ app.post("/togglePlaceLoved", async (req, res) => {
       const categoryToVisit = isToVisit ? category : null;
 
       await pool.query(
-        `INSERT INTO place_loved 
-         (place_id, account_id, is_loved, is_tovisit, category_loved, category_tovisit, user_note, added_date)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-        [place_id, user_id, isLoved, isToVisit, categoryLoved, categoryToVisit, user_note || null]
+        "INSERT INTO place_loved (place_id, account_id, is_loved, is_tovisit, category_loved, category_tovisit, added_date) VALUES ($1, $2, $3, $4, $5, $6, NOW())",
+        [place_id, user_id, isLoved, isToVisit, categoryLoved, categoryToVisit]
       );
 
       return res.json({
         [type]: true,
-        message: `Lieu ajouté à ${type === "loved" ? "vos favoris" : "votre liste à visiter"}`,
-        user_note
+        message: `Lieu ajouté à ${type === "loved" ? "vos favoris" : "votre liste à visiter"}`
       });
     }
   } catch (err) {
@@ -605,8 +597,6 @@ app.post("/togglePlaceLoved", async (req, res) => {
     res.status(500).json({ error: "Erreur interne du serveur" });
   }
 });
-
-
 
 
 
