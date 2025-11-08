@@ -390,7 +390,7 @@ app.post("/placesSearch", placesLimiter, async (req, res) => {
 // Recherche de lieux à proximité
 app.post("/placesNearby", placesLimiter, async (req, res) => {
   try {
-    const { lat, lon, radius, keyword } = req.body;
+    const { lat, lon, radius, category } = req.body;
 
     if (!lat || !lon || !radius) {
       return res.status(400).json({ error: "Les champs lat, lon et radius sont obligatoires." });
@@ -402,18 +402,18 @@ app.post("/placesNearby", placesLimiter, async (req, res) => {
         circle: {
           center: {
             latitude: parseFloat(lat),
-            longitude: parseFloat(lon)
+            longitude: parseFloat(lon),
           },
-          radius: parseInt(radius)
-        }
+          radius: parseInt(radius),
+        },
       },
       maxResultCount: 20,
-      rankPreference: "POPULARITY"
+      rankPreference: "POPULARITY",
     };
 
-    // Si un mot-clé est fourni, on l’ajoute
-    if (keyword) {
-      body.textQuery = keyword; // Compatible avec la recherche textuelle dans Nearby
+    // Si une catégorie est fournie, on l’ajoute
+    if (category) {
+      body.types = [category]; // types attend un tableau de catégories Google Maps
     }
 
     const response = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
@@ -421,9 +421,9 @@ app.post("/placesNearby", placesLimiter, async (req, res) => {
       headers: {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": GoogleMapsKey,
-        "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.location,places.types,places.id,places.rating,places.userRatingCount,places.businessStatus,places.primaryTypeDisplayName,places.primaryType"
+        "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.location,places.types,places.id,places.rating,places.userRatingCount,places.businessStatus,places.primaryTypeDisplayName,places.primaryType",
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
