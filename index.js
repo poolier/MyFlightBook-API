@@ -412,7 +412,7 @@ app.post("/placesNearby", placesLimiter, async (req, res) => {
 
     // Filtre par catégorie Google Maps
     if (category) {
-      body.includedTypes = [category.toLowerCase()]; // ex: "restaurant", "cafe"
+      body.includedPrimaryTypes = [category.toLowerCase()]; // ex: "restaurant", "cafe"
     }
 
     const response = await fetch(
