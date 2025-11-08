@@ -705,6 +705,43 @@ app.post("/placeLovedStatus", async (req, res) => {
   }
 });
 
+
+app.post("/userPostNote", async (req, res) => {
+  const { googlemapid, user_id, user_note } = req.body;
+
+  if (!googlemapid || !user_id || user_note === undefined) {
+    return res.status(400).json({ error: "googlemapid, user_note et user_id requis" });
+  }
+
+  try {
+    // 1️⃣ Récupérer l'ID du lieu
+    const placeResult = await pool.query(
+      "SELECT id FROM place WHERE googlemapid = $1",
+      [googlemapid]
+    );
+
+    if (placeResult.rows.length === 0) {
+      return res.status(404).json({ message: "Aucun lieu trouvé pour ce Google Map ID" });
+    }
+
+    const place_id = placeResult.rows[0].id;
+
+    // 2️⃣ Mettre à jour ou insérer la note
+    await pool.query(`
+      INSERT INTO place_loved (account_id, place_id, user_note)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (account_id, place_id)
+      DO UPDATE SET user_note = EXCLUDED.user_note
+    `, [user_id, place_id, user_note]);
+
+    res.status(200).json({ message: "Note utilisateur enregistrée avec succès" });
+
+  } catch (err) {
+    console.error("Erreur SQL:", err.message);
+    res.status(500).json({ error: "Erreur interne du serveur" });
+  }
+});
+
 // --- Lancer serveur ---
 app.listen(PORT, () => {
   console.log(`✅ Serveur lancé sur le port ${PORT}`);
