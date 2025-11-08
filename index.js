@@ -396,7 +396,6 @@ app.post("/placesNearby", placesLimiter, async (req, res) => {
       return res.status(400).json({ error: "Les champs lat, lon et radius sont obligatoires." });
     }
 
-    // Construction du body pour Google Places Nearby
     const body = {
       locationRestriction: {
         circle: {
@@ -411,35 +410,42 @@ app.post("/placesNearby", placesLimiter, async (req, res) => {
       rankPreference: "POPULARITY",
     };
 
-    // Si une catégorie est fournie, on l’ajoute
+    // Filtre par catégorie Google Maps
     if (category) {
-      body.types = [category]; // types attend un tableau de catégories Google Maps
+      body.categoryFilter = {
+        includeCategories: [category.toUpperCase()] // Google attend MAJUSCULES
+      };
     }
 
-    const response = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": GoogleMapsKey,
-        "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.location,places.types,places.id,places.rating,places.userRatingCount,places.businessStatus,places.primaryTypeDisplayName,places.primaryType",
-      },
-      body: JSON.stringify(body),
-    });
+    const response = await fetch(
+      "https://places.googleapis.com/v1/places:searchNearby",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": GoogleMapsKey,
+          "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.location,places.types,places.id,places.rating,places.userRatingCount,places.businessStatus,places.primaryTypeDisplayName,places.primaryType",
+        },
+        body: JSON.stringify(body),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Erreur Google Places Nearby :", errorText);
-      return res.status(response.status).json({ error: "Erreur depuis Google Places API Nearby", details: errorText });
+      return res
+        .status(response.status)
+        .json({ error: "Erreur depuis Google Places API Nearby", details: errorText });
     }
 
     const data = await response.json();
     res.status(200).json(data);
-
   } catch (error) {
     console.error("Erreur /placesNearby :", error.message);
     res.status(500).json({ error: error.message });
   }
 });
+
 
 
 // Détails d’un lieu spécifique
