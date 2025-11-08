@@ -620,7 +620,8 @@ app.get("/placesLovedList", async (req, res) => {
         pl.is_tovisit,
         pl.category_loved,
         pl.category_tovisit,
-        pl.added_date
+        pl.added_date,
+        pl.user.note
       FROM place_loved pl
       INNER JOIN place p ON pl.place_id = p.id
       WHERE pl.account_id = $1
@@ -674,7 +675,7 @@ app.post("/placeLovedStatus", async (req, res) => {
     // 2️⃣ Vérifier les statuts is_loved / is_tovisit pour cet utilisateur
     const lovedStatusResult = await pool.query(
       `
-      SELECT is_loved, is_tovisit
+      SELECT is_loved, is_tovisit,user_note
       FROM place_loved
       WHERE account_id = $1 AND place_id = $2
       `,
@@ -686,16 +687,18 @@ app.post("/placeLovedStatus", async (req, res) => {
       return res.status(200).json({
         is_loved: false,
         is_tovisit: false,
+        user_note: null,
         message: "Aucune donnée pour ce lieu",
       });
     }
 
     // 4️⃣ Retourner les valeurs existantes
-    const { is_loved, is_tovisit } = lovedStatusResult.rows[0];
+    const { is_loved, is_tovisit,user_note } = lovedStatusResult.rows[0];
 
     res.status(200).json({
       is_loved,
       is_tovisit,
+      user_note,
     });
   } catch (err) {
     console.error("Erreur SQL:", err.message);
