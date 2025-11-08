@@ -514,7 +514,7 @@ app.get("/placesDetails", async (req, res) => {
   }
 });
 
-//Ajouter user_note
+
 app.post("/togglePlaceLoved", async (req, res) => {
   const { googlemapid, user_id, type, category, user_note } = req.body;
 
@@ -551,35 +551,36 @@ app.post("/togglePlaceLoved", async (req, res) => {
     if (existingResult.rows.length > 0) {
       const currentValue = existingResult.rows[0][column];
 
-      // 3️⃣ Si déjà activé → désactiver + vider la catégorie + remettre la note à NULL
+      // 3️⃣ Si déjà activé → désactiver mais conserver la note
       if (currentValue) {
         await pool.query(
           `UPDATE place_loved 
-           SET ${column} = false, ${categoryColumn} = NULL, user_note = NULL 
+           SET ${column} = false, ${categoryColumn} = NULL 
            WHERE place_id = $1 AND account_id = $2`,
           [place_id, user_id]
         );
         return res.json({
           [type]: false,
-          message: `Lieu retiré de ${type === "loved" ? "vos favoris" : "votre liste à visiter"}`
+          message: `Lieu retiré de ${type === "loved" ? "vos favoris" : "votre liste à visiter"}`,
+          user_note: existingResult.rows[0].user_note
         });
       } 
-      // 4️⃣ Sinon → activer + ajouter la catégorie + mettre à jour la note
+      // 4️⃣ Sinon → activer + mettre à jour catégorie et note
       else {
         await pool.query(
           `UPDATE place_loved 
            SET ${column} = true, ${categoryColumn} = $3, user_note = $4, added_date = NOW() 
            WHERE place_id = $1 AND account_id = $2`,
-          [place_id, user_id, category, user_note || null]
+          [place_id, user_id, category, user_note || existingResult.rows[0].user_note || null]
         );
         return res.json({
           [type]: true,
           message: `Lieu ajouté à ${type === "loved" ? "vos favoris" : "votre liste à visiter"}`,
-          user_note
+          user_note: user_note || existingResult.rows[0].user_note
         });
       }
     } 
-    // 5️⃣ Si aucune entrée → en créer une avec la catégorie + la note
+    // 5️⃣ Si aucune entrée → créer une nouvelle ligne avec la note
     else {
       const isLoved = type === "loved";
       const isToVisit = type === "tovisit";
@@ -604,6 +605,7 @@ app.post("/togglePlaceLoved", async (req, res) => {
     res.status(500).json({ error: "Erreur interne du serveur" });
   }
 });
+
 
 
 
