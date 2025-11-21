@@ -26,6 +26,8 @@ const placesLimiter = rateLimit({
 app.use(express.json());
 const allowedOrigins = [
   "https://flight.lolprostat.com",
+  "http://localhost:5173",
+  "http://localhost:3000"
 ];
 
 app.use(
